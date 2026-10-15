@@ -1,0 +1,7 @@
+set(DMOD_MODULE_NAME rtc)
+set(DMOD_MODULE_VERSION ${PROJECT_VERSION})
+set(DMOD_AUTHOR_NAME "Patryk Kubiak")
+set(DMOD_STACK_SIZE 2048)
+set(DMOD_DMR_PATH ${CMAKE_CURRENT_SOURCE_DIR}/rtc.dmr)
+dmod_add_executable(rtc ${DMOD_MODULE_VERSION} rtc.c)
+target_link_libraries(rtc dmrtc_if)
