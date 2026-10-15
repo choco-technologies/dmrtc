@@ -74,14 +74,14 @@ stm32f746xg@/> rtc get
 2026-10-15T20:49:01 weekday=4
 stm32f746xg@/> rtc status
 running=1 calendar_set=1 clock=lse nominal_hz=32768
-stm32f746xg@/> 
+stm32f746xg@/>
 --- dmrtc-board-reset-before.log ---
 rtc set 2000-02-29T23:59:45
 stm32f746xg@/> rtc get
 2000-02-29T23:59:45 weekday=2
 stm32f746xg@/> rtc status
 running=1 calendar_set=1 clock=lse nominal_hz=32768
-stm32f746xg@/> 
+stm32f746xg@/>
 --- dmrtc-board-reset-after.log ---
 echo RTC_RESET_READY
 RTC_RESET_READY
@@ -89,7 +89,7 @@ stm32f746xg@/> rtc status
 running=1 calendar_set=1 clock=lse nominal_hz=32768
 stm32f746xg@/> rtc get
 2000-03-01T00:00:30 weekday=3
-stm32f746xg@/> 
+stm32f746xg@/>
 --- final firmware: ticking and reset retention ---
 rtc get
 2026-10-15T20:49:43 weekday=4
@@ -101,4 +101,4 @@ stm32f746xg@/> rtc status
 running=1 calendar_set=1 clock=lse nominal_hz=32768
 stm32f746xg@/> rtc get
 2026-10-15T20:50:23 weekday=4
-stm32f746xg@/> 
+stm32f746xg@/>
