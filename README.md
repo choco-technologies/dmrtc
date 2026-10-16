@@ -7,7 +7,7 @@ The `x86_64` port is a deterministic test double and is excluded from releases.
 ## Capabilities
 
 - Civil calendar for 2000–2099, 24-hour time, weekday computed on write.
-- Explicit LSE crystal or LSI configuration, bounded hardware waits.
+- LSE/LSI startup signaled by RCC IRQ; waiting task blocks on a semaphore.
 - Persistent explicit-calendar-set marker in two reserved backup registers.
 - Serialized operations and one owner per hardware RTC.
 - `/dev/rtc` ioctl interface, and the `rtc` console application.
@@ -39,12 +39,25 @@ There is no automatic fallback. The configured frequency must be divisible by
 128; asynchronous prescaler is 127, synchronous prescaler is `clock_hz/128-1`.
 LSI is less accurate and is not an independently battery-backed time source.
 
+`timeout_ms` limits oscillator startup only (default 5000 ms). RCC's LSE/LSI
+ready interrupt posts an ISR-safe semaphore; only the calling thread blocks.
+DBP and INITF have no corresponding hardware interrupts: these short register
+handshakes have a separate 20 ms limit and sleep between status samples.
+All blocking calls require a running scheduler and task context. There is no
+busy-wait fallback. The port no longer depends on `dmclk_port` delays.
+
+The RCC IRQ is shared: this port owns only its selected LSE/LSI ready source,
+preserves other interrupt enables, and disables its source before freeing the
+wait semaphore. An already-owned source or an active IRQ with a priority unsafe
+for DMOSI calls is rejected. No unrelated RCC flag is acknowledged.
+
 A previously selected different RTC clock, different prescalers or 12-hour
 format causes acquisition to fail. The driver never resets the backup domain.
 Changing those settings requires a deliberate board provisioning operation.
-RTC alarms, wakeup timer, calibration and interrupts are outside this API.
+RTC alarms, wakeup timer and calibration are outside this API.
 The port exclusively owns RTC configuration and backup-domain access during
 operations; do not access these registers concurrently from other code.
+The boot must initialize device drivers after starting the RTOS scheduler.
 
 STM32F746G-DISCO has an LSE crystal, but its VBAT pin is connected to VDD.
 The board preserves RTC across a system reset while powered; it does not retain

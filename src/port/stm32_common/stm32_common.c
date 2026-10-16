@@ -1,6 +1,6 @@
 #include "dmod.h"
 #include "dmrtc_port.h"
-#include "dmclk_port.h"
+#include "clock_wait.h"
 #include "registers.h"
 #include "stm32_common.h"
 #include <errno.h>
@@ -10,14 +10,6 @@ static bool acquired;
 static dmrtc_config_t cfg;
 struct backup_guard { bool power, writable; };
 
-static int wait_mask(volatile uint32_t* reg, uint32_t mask, uint32_t value)
-{
-    for (uint32_t n = 0; n <= cfg.timeout_ms; ++n) {
-        if ((*reg & mask) == value) return 0;
-        if (n != cfg.timeout_ms) dmclk_port_delay_us(1000);
-    }
-    return -ETIMEDOUT;
-}
 static void backup_close(struct backup_guard* g)
 {
     RTC(WPR) = 0xff;
@@ -35,7 +27,7 @@ static int backup_open(struct backup_guard* g)
     g->writable = (PWR & DBP) != 0;
     PWR |= DBP;
     Dmod_ExitCritical();
-    int rc = wait_mask(&PWR, DBP, DBP);
+    int rc = stm32_rtc_wait_register(&PWR, DBP, DBP);
     if (rc != 0) { backup_close(g); return rc; }
     RTC(WPR) = 0xca; RTC(WPR) = 0x53;
     return 0;
@@ -60,7 +52,7 @@ static bool running(void)
 static int init_enter(void)
 {
     RTC(ISR) |= INIT;
-    int rc = wait_mask(&RTC(ISR), INITF, INITF);
+    int rc = stm32_rtc_wait_register(&RTC(ISR), INITF, INITF);
     if (rc != 0) RTC(ISR) &= ~INIT;
     return rc;
 }
@@ -70,14 +62,8 @@ static int setup_clock(void)
     uint32_t old = RCC(BDCR) & RTCSEL;
     /* Changing a selected source requires destructive BDRST: refuse it. */
     if (old != 0 && old != select) return -EBUSY;
-    if (cfg.clock == DMRTC_CLOCK_LSE) {
-        if (RCC(BDCR) & LSEBYP) return -EBUSY; /* Only crystal mode is supported. */
-        RCC(BDCR) |= LSEON;
-    } else {
-        Dmod_EnterCritical(); RCC(CSR) |= LSION; Dmod_ExitCritical();
-    }
-    int rc = cfg.clock == DMRTC_CLOCK_LSE ? wait_mask(&RCC(BDCR), LSERDY, LSERDY) :
-        wait_mask(&RCC(CSR), LSIRDY, LSIRDY);
+    if (cfg.clock == DMRTC_CLOCK_LSE && (RCC(BDCR) & LSEBYP)) return -EBUSY;
+    int rc = stm32_rtc_start_clock(cfg.clock, cfg.timeout_ms);
     if (rc != 0) return rc;
     RCC(BDCR) = (RCC(BDCR) & ~RTCSEL) | select | RTCEN;
     uint32_t prescaler = (127u << 16) | (cfg.clock_hz / 128 - 1);
@@ -91,6 +77,8 @@ static int setup_clock(void)
         RTC(CR) &= ~FMT;
         RTC(PRER) = prescaler;
         RTC(ISR) &= ~INIT;
+        rc = stm32_rtc_wait_register(&RTC(ISR), INITF, 0);
+        if (rc != 0) return rc;
     }
     /* Direct calendar reads avoid shadow-register locking errata. */
     RTC(CR) |= BYPSHAD;
@@ -167,7 +155,7 @@ dmod_dmrtc_port_api_declaration(1.0, int, _set, (const dmrtc_calendar_t* c))
         RTC(DR) = bcd(c->year - 2000) << 16 | (uint32_t)c->weekday << 13 |
             bcd(c->month) << 8 | bcd(c->day);
         RTC(ISR) &= ~INIT;
-        rc = wait_mask(&RTC(ISR), INITF, 0);
+        rc = stm32_rtc_wait_register(&RTC(ISR), INITF, 0);
         if (rc == 0) {
             BKP(cfg.backup_register) = MARKER;
             BKP(cfg.backup_register + 1) = (uint32_t)~MARKER;

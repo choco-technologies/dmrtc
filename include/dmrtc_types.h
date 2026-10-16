@@ -14,7 +14,7 @@ typedef struct {
     uint32_t instance;
     dmrtc_clock_t clock;
     uint32_t clock_hz;
-    uint32_t timeout_ms;
+    uint32_t timeout_ms; /* Oscillator startup only; waiting task sleeps on an IRQ event. */
     uint32_t backup_register; /* Reserves this register AND the next one. */
 } dmrtc_config_t;
 #define DMRTC_CONFIG_DEFAULT {0, DMRTC_CLOCK_LSE, 32768, 5000, 18}

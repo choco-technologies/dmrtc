@@ -2,10 +2,22 @@
 #define STM32_RTC_REGISTERS_H
 #include <stdint.h>
 /* STM32F4 RM0090 and STM32F7 RM0385, RCC/PWR/RTC register maps. */
+#ifndef REG
 #define REG(base, off) (*(volatile uint32_t*)((uintptr_t)(base) + (off)))
+#endif
 #define RCC(off) REG(0x40023800u, off)
 #define PWR REG(0x40007000u, 0)
 #define RTC(off) REG(0x40002800u, off)
+#ifndef NVIC32
+#define NVIC32(off) REG(0xe000e100u, off)
+#endif
+#ifndef NVIC_PRIORITY
+#define NVIC_PRIORITY (*(volatile uint8_t*)(uintptr_t)0xe000e405u)
+#endif
+#define RCC_IRQ_BIT (1u << 5)
+#define RCC_CIR 0x0c
+#define RCC_IRQ_ENABLES 0x7f00u
+#define REGISTER_TIMEOUT_MS 20u
 #define APB1ENR 0x40
 #define BDCR 0x70
 #define CSR 0x74

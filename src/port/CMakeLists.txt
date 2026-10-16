@@ -20,7 +20,7 @@ set(DMOD_DMR_PATH           ${CMAKE_SOURCE_DIR}/dmrtc_port.dmr)
 # architectures can supply their own implementation without compiling this code.
 set(COMMON_SOURCES)
 if(DMOD_CPU_FAMILY MATCHES "^stm32f[47]$")
-    list(APPEND COMMON_SOURCES stm32_common/stm32_common.c)
+    list(APPEND COMMON_SOURCES stm32_common/stm32_common.c stm32_common/clock_wait.c)
 endif()
 
 #
@@ -45,5 +45,5 @@ target_include_directories(${DMOD_MODULE_NAME}_if INTERFACE
 )
 
 if(DMOD_CPU_FAMILY MATCHES "^stm32f[47]$")
-    dmod_link_modules(${DMOD_MODULE_NAME} dmclk_port)
+    dmod_link_modules(${DMOD_MODULE_NAME} dmosi)
 endif()

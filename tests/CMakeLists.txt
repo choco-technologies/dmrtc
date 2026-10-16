@@ -37,3 +37,23 @@ if(DMF_GET_EXECUTABLE AND DMOD_LOADER_EXECUTABLE)
 else()
     message(WARNING "dmf-get/dmod_loader not found - 'ctest' will not run ${DMOD_MODULE_NAME}. Build the tools first with -DDMOD_BUILD_TOOLS=ON")
 endif()
+
+# Exercise the actual STM32 wait implementation with MMIO and OS test doubles.
+# Invoke the host compiler directly to avoid the DMOD module linker script.
+if(DMOD_CPU_FAMILY STREQUAL "x86_64")
+    find_program(HOST_CC NAMES cc gcc REQUIRED)
+    set(WAIT_TEST ${CMAKE_CURRENT_SOURCE_DIR}/stm32_wait)
+    set(WAIT_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/../src/port/stm32_common)
+    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_stm32_wait
+        COMMAND ${HOST_CC} -D_POSIX_C_SOURCE=200809L -std=c11 -Wall -Wextra -Werror -pthread
+            -include ${WAIT_TEST}/mmio.h -I${WAIT_TEST}/stubs
+            -I${CMAKE_CURRENT_SOURCE_DIR}/../include -I${WAIT_SOURCE}
+            ${WAIT_TEST}/wait_test.c ${WAIT_SOURCE}/clock_wait.c
+            -o ${CMAKE_CURRENT_BINARY_DIR}/test_stm32_wait
+        DEPENDS ${WAIT_TEST}/wait_test.c ${WAIT_SOURCE}/clock_wait.c
+            ${WAIT_SOURCE}/clock_wait.h ${WAIT_SOURCE}/registers.h
+            ${WAIT_TEST}/mmio.h ${WAIT_TEST}/stubs/dmod.h ${WAIT_TEST}/stubs/dmosi.h)
+    add_custom_target(stm32_wait_test_build ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/test_stm32_wait)
+    add_test(NAME stm32_rtc_wait COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_stm32_wait)
+    set_tests_properties(stm32_rtc_wait PROPERTIES TIMEOUT 10)
+endif()
