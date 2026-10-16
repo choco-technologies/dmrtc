@@ -63,7 +63,7 @@ STM32F746G-DISCO has an LSE crystal, but its VBAT pin is connected to VDD.
 The board preserves RTC across a system reset while powered; it does not retain
 calendar through complete power removal without hardware modification.
 
-## API and console
+## Driver integration and device interface
 
 `dmrtc_create(&config)` acquires hardware; NULL selects `DMRTC_CONFIG_DEFAULT`.
 A board-created context can be borrowed with `dmrtc_default()`. Its owner alone
@@ -81,15 +81,31 @@ new epoch or replace this port before that boundary. Leap seconds are rejected.
 
 ```text
 rtc status
+rtc info
 rtc get
 rtc set 2026-10-15T12:34:56
 rtc invalidate
+rtc -d /dev/backup-rtc get
 ```
 
-`rtc set` accepts civil time, with no implicit timezone conversion.
-`/dev/rtc` supports `DMRTC_IOCTL_GET`, `DMRTC_IOCTL_SET`, `DMRTC_IOCTL_STATUS`
-and `DMRTC_IOCTL_INVALIDATE` from `dmrtc.h`. GET/STATUS require a readable file;
-SET/INVALIDATE require a writable file. There is no byte-stream encoding.
+The `rtc` application uses VFS and `dmdrvi_ioctl.h` only; it has no dependency
+on the dmrtc context API or module. `-d DEVICE` selects any compatible RTC node;
+`/dev/rtc` is the default. It can read clocks outside STM32's range and display
+fractional seconds. `set` accepts up to nine fractional digits; the physical
+STM32 port rejects nonzero fractions with -ERANGE rather than truncating them.
+No command implicitly assigns a timezone or authenticates UTC.
+
+Device files implement `DMDRVI_IOCTL_RTC_GET_TIME`, `SET_TIME`, `GET_STATUS`,
+`GET_INFO`, and optional `INVALIDATE`. The shared calendar, capabilities and
+status structures belong to dmdrvi. Read commands require a readable handle;
+SET_TIME/INVALIDATE require write access. Private ioctl numbers are removed.
+There is no byte-stream encoding. See the [shared contract](https://github.com/choco-technologies/dmdrvi/blob/main/docs/rtc.md).
+
+GET_INFO reports 2000–2099, one-second resolution, SET_TIME and INVALIDATE.
+This driver does not advertise hardware continuity-loss detection; the console
+therefore reports `time_lost=unknown`. A clear loss flag on hardware without
+that capability is not evidence of clock continuity. Oscillator selection and
+backup-register configuration remain driver-specific INI/port settings.
 
 ## Build and verify
 

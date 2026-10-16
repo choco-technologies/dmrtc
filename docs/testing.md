@@ -66,3 +66,33 @@ Current STM32F7 package hashes:
 - `dmrtc.dmfc`: `9d0cccc0609c9ebf08cafaf4c3dc293012e61f2f9825eae828d03a345340ec34`
 
 - `dmrtc_port.dmfc`: `6f8f416592d6a7a8eccfe794d909536824fc5ff02bad47dd434a9ae84a26390c`
+
+## Standard RTC device contract — 2026-10-16
+
+Public device commands and fixed-width calendar/capability/status structures now
+come from `dmdrvi_ioctl.h`. The CLI includes no dmrtc API and opens a selected
+VFS path. Private numeric ioctl commands are rejected.
+
+- Native ctest: 3/3 targets (12/12 driver steps, STM32 wait tests, generic CLI
+  tested with a separate read-only/subsecond RTC outside STM32's year range).
+- STM32F4/F7 core, port, client and test builds passed.
+- STM32F746G-DISCO: RTC 11/11, dmdrvi 6/6, RNG regression 6/6.
+- CLI info/status/get and `-d /dev/rtc` checked through VFS; set restored PC UTC.
+- STM32 reports 2000..2099 and one-second granularity. Unsupported fractional
+  writes fail with ERANGE and preserve the prior calendar. Loss detection is
+  not advertised; the CLI prints `time_lost=unknown`.
+- Hardware validation includes the dmdevfs fix translating dmfsi RDWR=3 into
+  dmdrvi RDWR=4. Production integration requires that fix and a dmdrvi release
+  carrying the new header. Local build manifests supplied the unreleased
+  headers during validation; no dependency versions are pinned in source.
+- dmdrvi ARM diagnostics were configured with DMOD's architecture tools-cfg.cmake
+  as CMAKE_TOOLCHAIN_FILE before project language initialization.
+
+[Console evidence](validation/rtc-device-contract-2026-10-16.txt).
+
+Validated STM32F7 compressed packages:
+
+- `dmrtc.dmfc`: `c3b4920850a903f9398d1f539d6435318e906fc327974bfe479ca36344421738`
+- `dmrtc_port.dmfc`: `6f8f416592d6a7a8eccfe794d909536824fc5ff02bad47dd434a9ae84a26390c`
+- `rtc.dmfc`: `d5c120a682f5fab69631444fc6edc45d2df42b8eeea38302acc21afb59962810`
+- `test_dmrtc.dmfc`: `2106b08b510d912fa778fd67eb44a9903808cac87eb42214d0295dcae43ab10a`

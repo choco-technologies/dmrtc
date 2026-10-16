@@ -222,17 +222,7 @@ dmod_dmdrvi_dif_api_declaration(2.0, dmrtc, int, _ioctl,
 {
     dmrtc_t ctx = (dmrtc_t)context; struct rtc_file* file = handle;
     if (!dmrtc_is_valid(ctx) || file == NULL || file->owner != ctx) return -EBADF;
-    bool write = command == DMRTC_IOCTL_SET || command == DMRTC_IOCTL_INVALIDATE;
-    bool read = command == DMRTC_IOCTL_GET || command == DMRTC_IOCTL_STATUS;
-    if (!write && !read) return -ENOTTY;
-    if (write && !(file->flags & (DMDRVI_O_WRONLY | DMDRVI_O_RDWR))) return -EACCES;
-    if (read && !(file->flags & (DMDRVI_O_RDONLY | DMDRVI_O_RDWR))) return -EACCES;
-    switch (command) {
-        case DMRTC_IOCTL_GET: return dmrtc_get(ctx, arg);
-        case DMRTC_IOCTL_SET: return dmrtc_set(ctx, arg);
-        case DMRTC_IOCTL_STATUS: return dmrtc_status(ctx, arg);
-        default: return dmrtc_invalidate(ctx);
-    }
+    return dmrtc_device_ioctl(ctx, file->flags, command, arg);
 }
 dmod_dmdrvi_dif_api_declaration(2.0, dmrtc, int, _flush,
     (dmdrvi_context_t context, void* handle))

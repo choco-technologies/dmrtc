@@ -1,6 +1,8 @@
 #define DMOD_ENABLE_REGISTRATION ON
+#define ENABLE_DIF_REGISTRATIONS
 #include "dmod_test.h"
 #include "dmrtc.h"
+#include "dmdrvi.h"
 #include <errno.h>
 #include <string.h>
 #ifdef DMRTC_MOCK
@@ -43,6 +45,100 @@ void dmod_test_teardown(void)
     restore();
     if (owned != NULL) DMOD_TEST_EXPECT_EQ(dmrtc_destroy(owned), 0);
     owned = NULL; ctx = NULL;
+}
+#ifdef DMRTC_MOCK
+static dmod_dmdrvi_ioctl_t device_ioctl;
+static dmod_dmdrvi_close_t device_close;
+#endif
+static void* open_device(const char* mode)
+{
+#ifdef DMRTC_MOCK
+    Dmod_Context_t* module = Dmod_LoadModuleByName("dmrtc");
+    if (module == NULL) return NULL;
+    dmod_dmdrvi_open_t open = (dmod_dmdrvi_open_t)Dmod_GetDifFunction(module, dmod_dmdrvi_open_sig);
+    device_ioctl = (dmod_dmdrvi_ioctl_t)Dmod_GetDifFunction(module, dmod_dmdrvi_ioctl_sig);
+    device_close = (dmod_dmdrvi_close_t)Dmod_GetDifFunction(module, dmod_dmdrvi_close_sig);
+    if (open == NULL || device_ioctl == NULL || device_close == NULL) return NULL;
+    dmdrvi_dev_num_t num = {0};
+    int flags = strcmp(mode,"rb") == 0 ? DMDRVI_O_RDONLY :
+        strcmp(mode,"wb") == 0 ? DMDRVI_O_WRONLY : DMDRVI_O_RDWR;
+    return open((dmdrvi_context_t)ctx, flags, &num);
+#else
+    return Dmod_FileOpen("/dev/rtc", mode);
+#endif
+}
+static int ioctl_device(void* file, int command, void* arg)
+{
+#ifdef DMRTC_MOCK
+    return device_ioctl((dmdrvi_context_t)ctx, file, command, arg);
+#else
+    return Dmod_Ioctl(file, command, arg);
+#endif
+}
+static void close_device(void* file)
+{
+#ifdef DMRTC_MOCK
+    device_close((dmdrvi_context_t)ctx, file);
+#else
+    Dmod_FileClose(file);
+#endif
+}
+DMOD_TEST_STEP(standard_rtc_capabilities_and_unset_state)
+{
+    void* file = open_device("r+b"); DMOD_TEST_EXPECT_NOT_NULL(file);
+    if (file == NULL) return;
+    dmdrvi_rtc_info_t info; dmdrvi_rtc_status_t status; dmdrvi_rtc_time_t time;
+    DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_GET_INFO, &info), 0);
+    DMOD_TEST_EXPECT_EQ(info.min_year, 2000); DMOD_TEST_EXPECT_EQ(info.max_year, 2099);
+    DMOD_TEST_EXPECT_EQ(info.resolution_ns, 1000000000u);
+    DMOD_TEST_EXPECT_EQ(info.capabilities, DMDRVI_RTC_CAP_SET_TIME | DMDRVI_RTC_CAP_INVALIDATE);
+    DMOD_TEST_EXPECT_EQ(info.reserved, 0);
+    DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_INVALIDATE, NULL), 0);
+    memset(&time, 0xa5, sizeof(time));
+    DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_GET_TIME, &time), -ENODATA);
+    const dmdrvi_rtc_time_t zero = {0};
+    DMOD_TEST_EXPECT_EQ(memcmp(&time, &zero, sizeof(time)), 0);
+    DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_GET_STATUS, &status), 0);
+    DMOD_TEST_EXPECT_EQ(status.flags, DMDRVI_RTC_STATUS_RUNNING);
+    DMOD_TEST_EXPECT_EQ(status.reserved, 0);
+    DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_GET_TIME, NULL), -EINVAL);
+    DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_GET_INFO, NULL), -EINVAL);
+    DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_GET_STATUS, NULL), -EINVAL);
+    DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_SET_TIME, NULL), -EINVAL);
+    DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_INVALIDATE, &time), -EINVAL);
+    close_device(file);
+}
+DMOD_TEST_STEP(standard_rtc_range_and_precision_are_enforced)
+{
+    void* file = open_device("r+b"); DMOD_TEST_EXPECT_NOT_NULL(file);
+    if (file == NULL) return;
+    dmdrvi_rtc_time_t time = {.year=2000, .month=2, .day=29, .hour=12, .weekday=99}, out;
+    DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_SET_TIME, &time), 0);
+    DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_GET_TIME, &out), 0);
+    DMOD_TEST_EXPECT_EQ(out.weekday, 2); DMOD_TEST_EXPECT_EQ(out.nanosecond, 0);
+    DMOD_TEST_EXPECT_EQ(out.reserved, 0);
+    time.year = 1999; DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_SET_TIME, &time), -ERANGE);
+    time.year = 2100; DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_SET_TIME, &time), -ERANGE);
+    time.year = -1; DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_SET_TIME, &time), -EINVAL);
+    time.year = 2000; time.day = 30;
+    DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_SET_TIME, &time), -EINVAL);
+    time.day = 29; time.nanosecond = 1;
+    DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_SET_TIME, &time), -ERANGE);
+    time.nanosecond = 1000000000;
+    DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_SET_TIME, &time), -EINVAL);
+    time.nanosecond = 0; time.reserved = 1;
+    DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_SET_TIME, &time), -EINVAL);
+    DMOD_TEST_EXPECT_EQ(ioctl_device(file, DMDRVI_IOCTL_RTC_GET_TIME, &out), 0);
+    DMOD_TEST_EXPECT_EQ(out.year, 2000); DMOD_TEST_EXPECT_EQ(out.day, 29);
+    close_device(file);
+}
+DMOD_TEST_STEP(private_rtc_command_numbers_are_not_supported)
+{
+    void* file = open_device("r+b"); DMOD_TEST_EXPECT_NOT_NULL(file);
+    if (file == NULL) return;
+    for (int command = 0x52540001; command <= 0x52540004; ++command)
+        DMOD_TEST_EXPECT_EQ(ioctl_device(file, command, NULL), -ENOTTY);
+    close_device(file);
 }
 DMOD_TEST_STEP(calendar_validation)
 {
@@ -101,31 +197,31 @@ DMOD_TEST_STEP(single_owner_and_bad_configuration)
     bad.timeout_ms = 5000; bad.clock_hz = 0; DMOD_TEST_EXPECT_NULL(dmrtc_create(&bad));
     DMOD_TEST_EXPECT_EQ(dmrtc_destroy(NULL), 0);
 }
-#ifndef DMRTC_MOCK
 DMOD_TEST_STEP(vfs_ioctl_and_access_permissions)
 {
-    void* reader = Dmod_FileOpen("/dev/rtc", "rb");
-    void* writer = Dmod_FileOpen("/dev/rtc", "wb");
+    void* reader = open_device("rb");
+    void* writer = open_device("wb");
     DMOD_TEST_EXPECT_NOT_NULL(reader); DMOD_TEST_EXPECT_NOT_NULL(writer);
-    dmrtc_status_t status; dmrtc_calendar_t c = {2026, 10, 15, 1, 2, 3, 0};
+    dmdrvi_rtc_status_t status; dmdrvi_rtc_time_t c = {.year=2026, .month=10, .day=15, .hour=1, .minute=2, .second=3};
     if (reader != NULL) {
-        DMOD_TEST_EXPECT_EQ(Dmod_Ioctl(reader, DMRTC_IOCTL_STATUS, &status), 0);
-        DMOD_TEST_EXPECT_EQ(Dmod_Ioctl(reader, DMRTC_IOCTL_SET, &c), -EACCES);
-        DMOD_TEST_EXPECT_EQ(Dmod_Ioctl(reader, DMRTC_IOCTL_INVALIDATE, NULL), -EACCES);
-        DMOD_TEST_EXPECT_EQ(Dmod_Ioctl(reader, 12345, NULL), -ENOTTY);
+        DMOD_TEST_EXPECT_EQ(ioctl_device(reader, DMDRVI_IOCTL_RTC_GET_STATUS, &status), 0);
+        DMOD_TEST_EXPECT_EQ(ioctl_device(reader, DMDRVI_IOCTL_RTC_SET_TIME, &c), -EACCES);
+        DMOD_TEST_EXPECT_EQ(ioctl_device(reader, DMDRVI_IOCTL_RTC_INVALIDATE, NULL), -EACCES);
+        DMOD_TEST_EXPECT_EQ(ioctl_device(reader, 12345, NULL), -ENOTTY);
         DMOD_TEST_EXPECT_EQ(dmrtc_destroy(ctx), -EBUSY);
     }
     if (writer != NULL) {
-        DMOD_TEST_EXPECT_EQ(Dmod_Ioctl(writer, DMRTC_IOCTL_SET, &c), 0);
-        DMOD_TEST_EXPECT_EQ(Dmod_Ioctl(writer, DMRTC_IOCTL_GET, &c), -EACCES);
+        DMOD_TEST_EXPECT_EQ(ioctl_device(writer, DMDRVI_IOCTL_RTC_SET_TIME, &c), 0);
+        DMOD_TEST_EXPECT_EQ(ioctl_device(writer, DMDRVI_IOCTL_RTC_GET_TIME, &c), -EACCES);
     }
     if (reader != NULL) {
-        DMOD_TEST_EXPECT_EQ(Dmod_Ioctl(reader, DMRTC_IOCTL_GET, &c), 0);
+        DMOD_TEST_EXPECT_EQ(ioctl_device(reader, DMDRVI_IOCTL_RTC_GET_TIME, &c), 0);
         DMOD_TEST_EXPECT_EQ(c.year, 2026);
-        Dmod_FileClose(reader);
+        close_device(reader);
     }
-    if (writer != NULL) Dmod_FileClose(writer);
+    if (writer != NULL) close_device(writer);
 }
+#ifndef DMRTC_MOCK
 DMOD_TEST_STEP(leap_day_rollover)
 {
     dmrtc_calendar_t c = {2024, 2, 28, 23, 59, 59, 0}, out;

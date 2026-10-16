@@ -9,4 +9,5 @@ struct dmrtc {
     dmosi_mutex_t lock;
     uint32_t opens;
 };
+int dmrtc_device_ioctl(dmrtc_t ctx, int flags, int command, void* arg);
 #endif

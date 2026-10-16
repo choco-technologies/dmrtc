@@ -1,0 +1,99 @@
+rtc info
+years=2000..2099 resolution_ns=1000000000 writable=1 invalidatable=1 loss_detection=0
+stm32f746xg@/> echo RTC_COMMAND_DONE_473
+RTC_COMMAND_DONE_473
+stm32f746xg@/> rtc status
+running=1 calendar_set=1 time_lost=unknown
+stm32f746xg@/> echo RTC_COMMAND_DONE_473
+RTC_COMMAND_DONE_473
+stm32f746xg@/> rtc get
+2026-10-16T06:13:03 weekday=5
+stm32f746xg@/> echo RTC_COMMAND_DONE_473
+RTC_COMMAND_DONE_473
+stm32f746xg@/> rtc -d /dev/rtc get
+2026-10-16T06:13:03 weekday=5
+stm32f746xg@/> echo RTC_COMMAND_DONE_473
+RTC_COMMAND_DONE_473
+stm32f746xg@/> test_dmrtc
+=== DMOD Test Runner ===
+[ RUN  ] year_rollover
+[  OK  ] year_rollover
+[ RUN  ] leap_day_rollover
+[  OK  ] leap_day_rollover
+[ RUN  ] vfs_ioctl_and_access_permissions
+[  OK  ] vfs_ioctl_and_access_permissions
+[ RUN  ] single_owner_and_bad_configuration
+[  OK  ] single_owner_and_bad_configuration
+[ RUN  ] year_2000_is_not_an_uninitialized_calendar
+[  OK  ] year_2000_is_not_an_uninitialized_calendar
+[ RUN  ] set_read_and_reject_invalid
+[  OK  ] set_read_and_reject_invalid
+[ RUN  ] unset_calendar
+[  OK  ] unset_calendar
+[ RUN  ] calendar_validation
+[  OK  ] calendar_validation
+[ RUN  ] private_rtc_command_numbers_are_not_supported
+[  OK  ] private_rtc_command_numbers_are_not_supported
+[ RUN  ] standard_rtc_range_and_precision_are_enforced
+[  OK  ] standard_rtc_range_and_precision_are_enforced
+[ RUN  ] standard_rtc_capabilities_and_unset_state
+[  OK  ] standard_rtc_capabilities_and_unset_state
+
+=== Results: 11/11 passed ===
+stm32f746xg@/> echo RTC_COMMAND_DONE_473
+RTC_COMMAND_DONE_473
+stm32f746xg@/> test_dmdrvi
+=== DMOD Test Runner ===
+[ RUN  ] dmdrvi_input_states_compare_every_field
+[  OK  ] dmdrvi_input_states_compare_every_field
+[ RUN  ] dmdrvi_monitor_policy_holds_longest_handler_name
+[  OK  ] dmdrvi_monitor_policy_holds_longest_handler_name
+[ RUN  ] dmdrvi_monitor_commands_are_distinct
+[  OK  ] dmdrvi_monitor_commands_are_distinct
+[ RUN  ] dmdrvi_errors_are_distinct_from_eof
+[  OK  ] dmdrvi_errors_are_distinct_from_eof
+[ RUN  ] dmdrvi_sizes_round_trip_above_four_gib
+[  OK  ] dmdrvi_sizes_round_trip_above_four_gib
+[ RUN  ] dmdrvi_v2_signatures_are_registered
+[  OK  ] dmdrvi_v2_signatures_are_registered
+
+=== Results: 6/6 passed ===
+stm32f746xg@/> echo RTC_COMMAND_DONE_473
+RTC_COMMAND_DONE_473
+stm32f746xg@/> test_dmrng
+=== DMOD Test Runner ===
+[ RUN  ] vfs_device
+dmdevfs: [ERROR] Driver failed to open device: /rng
+[ERROR] Failed to open file '/dev/rng'
+[  OK  ] vfs_device
+[ RUN  ] sustained_generation
+RNG_SAMPLE bytes=65536 checksum=2231c26b
+[  OK  ] sustained_generation
+[ RUN  ] single_owner_and_configuration_validation
+[  OK  ] single_owner_and_configuration_validation
+[ RUN  ] independent_blocks
+[  OK  ] independent_blocks
+[ RUN  ] unaligned_and_guarded_buffer
+[  OK  ] unaligned_and_guarded_buffer
+[ RUN  ] zero_and_invalid_reads
+[  OK  ] zero_and_invalid_reads
+
+=== Results: 6/6 passed ===
+stm32f746xg@/> echo RTC_COMMAND_DONE_473
+RTC_COMMAND_DONE_473
+stm32f746xg@/> rtc set 2026-10-16T06:13:10
+stm32f746xg@/> echo RTC_COMMAND_DONE_473
+RTC_COMMAND_DONE_473
+stm32f746xg@/> rtc get
+2026-10-16T06:13:10 weekday=5
+stm32f746xg@/> echo RTC_COMMAND_DONE_473
+RTC_COMMAND_DONE_473
+stm32f746xg@/> rtc status
+running=1 calendar_set=1 time_lost=unknown
+stm32f746xg@/> echo RTC_COMMAND_DONE_473
+RTC_COMMAND_DONE_473
+stm32f746xg@/> ip addr
+eth0: 192.168.50.184/24
+stm32f746xg@/> echo RTC_COMMAND_DONE_473
+RTC_COMMAND_DONE_473
+stm32f746xg@/> 

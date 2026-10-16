@@ -18,8 +18,9 @@ target_link_libraries(${DMOD_MODULE_NAME} dmrtc_if)
 if(DMOD_CPU_FAMILY STREQUAL "x86_64")
     target_compile_definitions(${DMOD_MODULE_NAME} PRIVATE DMRTC_MOCK)
     target_link_libraries(${DMOD_MODULE_NAME} dmrtc_port_if)
-    dmod_link_modules(${DMOD_MODULE_NAME} dmosi)
 endif()
+
+dmod_link_modules(${DMOD_MODULE_NAME} dmosi dmdrvi dmini)
 
 # Register the test module with ctest - this replays the same two steps CI
 # runs (see .github/templates/ci.yml.template): install the test module's
@@ -56,4 +57,15 @@ if(DMOD_CPU_FAMILY STREQUAL "x86_64")
     add_custom_target(stm32_wait_test_build ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/test_stm32_wait)
     add_test(NAME stm32_rtc_wait COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_stm32_wait)
     set_tests_properties(stm32_rtc_wait PROPERTIES TIMEOUT 10)
+    set(RTC_CLIENT_TEST ${CMAKE_CURRENT_SOURCE_DIR}/rtc_client)
+    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_rtc_client
+        COMMAND ${HOST_CC} -std=c11 -Wall -Wextra -Werror
+            -I${RTC_CLIENT_TEST}/stubs -I${DMOD_DMF_DIR}/inc/dmdrvi/include
+            ${RTC_CLIENT_TEST}/client_test.c -o ${CMAKE_CURRENT_BINARY_DIR}/test_rtc_client
+        DEPENDS ${RTC_CLIENT_TEST}/client_test.c ${RTC_CLIENT_TEST}/stubs/dmod.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/../apps/rtc/rtc.c
+            ${DMOD_DMF_DIR}/inc/dmdrvi/include/dmdrvi_ioctl.h)
+    add_custom_target(rtc_client_test_build ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/test_rtc_client)
+    add_test(NAME rtc_generic_client COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_rtc_client)
+    set_tests_properties(rtc_generic_client PROPERTIES TIMEOUT 10)
 endif()

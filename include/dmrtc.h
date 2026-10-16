@@ -23,10 +23,6 @@ dmod_dmrtc_api(1.0, int, _invalidate, (dmrtc_t ctx));
 /* Pure validation/weekday normalization. Input is unchanged on error. */
 dmod_dmrtc_api(1.0, int, _normalize, (dmrtc_calendar_t* calendar));
 
-/* /dev/rtc is an ioctl device, without a byte-stream representation.
- * GET/STATUS require read access; SET/INVALIDATE require write access. */
-#define DMRTC_IOCTL_GET        0x52540001
-#define DMRTC_IOCTL_SET        0x52540002
-#define DMRTC_IOCTL_STATUS     0x52540003
-#define DMRTC_IOCTL_INVALIDATE 0x52540004
+/* Device files implement the standard DMDRVI_IOCTL_RTC_* contract from
+ * dmdrvi_ioctl.h. This direct context API is for driver/port integration. */
 #endif
