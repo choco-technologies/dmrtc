@@ -47,6 +47,7 @@ void dmod_test_teardown(void)
     owned = NULL; ctx = NULL;
 }
 #ifdef DMRTC_MOCK
+static dmod_dmdrvi_read_t device_read;
 static dmod_dmdrvi_ioctl_t device_ioctl;
 static dmod_dmdrvi_close_t device_close;
 #endif
@@ -56,9 +57,10 @@ static void* open_device(const char* mode)
     Dmod_Context_t* module = Dmod_LoadModuleByName("dmrtc");
     if (module == NULL) return NULL;
     dmod_dmdrvi_open_t open = (dmod_dmdrvi_open_t)Dmod_GetDifFunction(module, dmod_dmdrvi_open_sig);
+    device_read = (dmod_dmdrvi_read_t)Dmod_GetDifFunction(module, dmod_dmdrvi_read_sig);
     device_ioctl = (dmod_dmdrvi_ioctl_t)Dmod_GetDifFunction(module, dmod_dmdrvi_ioctl_sig);
     device_close = (dmod_dmdrvi_close_t)Dmod_GetDifFunction(module, dmod_dmdrvi_close_sig);
-    if (open == NULL || device_ioctl == NULL || device_close == NULL) return NULL;
+    if (open == NULL || device_read == NULL || device_ioctl == NULL || device_close == NULL) return NULL;
     dmdrvi_dev_num_t num = {0};
     int flags = strcmp(mode,"rb") == 0 ? DMDRVI_O_RDONLY :
         strcmp(mode,"wb") == 0 ? DMDRVI_O_WRONLY : DMDRVI_O_RDWR;
@@ -83,6 +85,72 @@ static void close_device(void* file)
     Dmod_FileClose(file);
 #endif
 }
+/* Host exercises the DIF directly; hardware exercises the same read via VFS. */
+static dmdrvi_ssize_t read_device(void* file, void* buffer, size_t size, dmdrvi_offset_t offset)
+{
+#ifdef DMRTC_MOCK
+    return device_read((dmdrvi_context_t)ctx, file, buffer, size, offset);
+#else
+    if (Dmod_FileSeek(file, offset, 0) != 0) return -EIO;
+    return (dmdrvi_ssize_t)Dmod_FileRead(buffer, 1, size, file);
+#endif
+}
+DMOD_TEST_STEP(text_read_is_a_bounded_per_open_calendar_snapshot)
+{
+    dmrtc_calendar_t c = {2024, 2, 29, 12, 34, 56, 0};
+    DMOD_TEST_EXPECT_EQ(dmrtc_set(ctx, &c), 0);
+    void* file = open_device("rb"); DMOD_TEST_EXPECT_NOT_NULL(file);
+    if (file == NULL) return;
+    char text[22]; memset(text, '#', sizeof(text));
+    DMOD_TEST_EXPECT_EQ(read_device(file, text + 1, 17, 0), 17);
+    DMOD_TEST_EXPECT_EQ(memcmp(text + 1, "2024-02-29T12:34:", 17), 0);
+    c = (dmrtc_calendar_t){2000, 1, 1, 0, 0, 0, 0};
+    DMOD_TEST_EXPECT_EQ(dmrtc_set(ctx, &c), 0);
+    for (int offset = 17; offset < 20; ++offset)
+        DMOD_TEST_EXPECT_EQ(read_device(file, text + 1 + offset, 1, offset), 1);
+    DMOD_TEST_EXPECT_EQ(text[0], '#'); DMOD_TEST_EXPECT_EQ(text[21], '#');
+    DMOD_TEST_EXPECT_EQ(text[20], '\n');
+    DMOD_TEST_EXPECT_TRUE(text[18] >= '0' && text[18] <= '5');
+    DMOD_TEST_EXPECT_TRUE(text[19] >= '0' && text[19] <= '9');
+    char again[32]; memset(again, '#', sizeof(again));
+    DMOD_TEST_EXPECT_EQ(read_device(file, again, sizeof(again), 0), 20);
+    DMOD_TEST_EXPECT_EQ(memcmp(again, text + 1, 20), 0);
+    DMOD_TEST_EXPECT_EQ(again[20], '#');
+    DMOD_TEST_EXPECT_EQ(read_device(file, again, sizeof(again), 20), 0);
+    DMOD_TEST_EXPECT_EQ(read_device(file, again, sizeof(again), 1000), 0);
+    close_device(file);
+    file = open_device("rb"); DMOD_TEST_EXPECT_NOT_NULL(file);
+    if (file != NULL) {
+        DMOD_TEST_EXPECT_EQ(read_device(file, again, sizeof(again), 0), 20);
+        DMOD_TEST_EXPECT_EQ(memcmp(again, "2000-01-01T00:00:", 17), 0);
+        close_device(file);
+    }
+}
+#ifdef DMRTC_MOCK
+DMOD_TEST_STEP(text_read_validates_access_and_retries_unset_clock)
+{
+    void* file = open_device("rb"); DMOD_TEST_EXPECT_NOT_NULL(file);
+    if (file == NULL) return;
+    char out[24]; memset(out, '#', sizeof(out));
+    DMOD_TEST_EXPECT_EQ(dmrtc_invalidate(ctx), 0);
+    DMOD_TEST_EXPECT_EQ(read_device(file, NULL, 0, 0), 0);
+    DMOD_TEST_EXPECT_EQ(read_device(file, NULL, 1, 0), -EINVAL);
+    DMOD_TEST_EXPECT_EQ(read_device(file, out, sizeof(out), -1), -EINVAL);
+    DMOD_TEST_EXPECT_EQ(read_device(file, out, sizeof(out), 0), -ENODATA);
+    DMOD_TEST_EXPECT_EQ(out[0], '#');
+    dmrtc_calendar_t c = {2026, 10, 16, 1, 2, 3, 0};
+    DMOD_TEST_EXPECT_EQ(dmrtc_set(ctx, &c), 0);
+    DMOD_TEST_EXPECT_EQ(read_device(file, out, sizeof(out), 0), 20);
+    DMOD_TEST_EXPECT_EQ(memcmp(out, "2026-10-16T01:02:03\n", 20), 0);
+    DMOD_TEST_EXPECT_EQ(device_read((dmdrvi_context_t)ctx, NULL, out, 1, 0), -EBADF);
+    close_device(file);
+    file = open_device("wb"); DMOD_TEST_EXPECT_NOT_NULL(file);
+    if (file != NULL) {
+        DMOD_TEST_EXPECT_EQ(read_device(file, out, 1, 0), -EACCES);
+        close_device(file);
+    }
+}
+#endif
 DMOD_TEST_STEP(standard_rtc_capabilities_and_unset_state)
 {
     void* file = open_device("r+b"); DMOD_TEST_EXPECT_NOT_NULL(file);

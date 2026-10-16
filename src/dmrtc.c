@@ -180,7 +180,18 @@ dmod_dmdrvi_dif_api_declaration(2.0, dmrtc, void, _free, (dmdrvi_context_t ctx))
     int rc = dmrtc_destroy((dmrtc_t)ctx);
     if (rc != 0) DMOD_LOG_ERROR("dmrtc: release failed (%d)\n", rc);
 }
-struct rtc_file { dmrtc_t owner; int flags; };
+enum { RTC_TEXT_LENGTH = 20 };
+struct rtc_file {
+    dmrtc_t owner;
+    int flags;
+    bool text_ready;
+    char text[RTC_TEXT_LENGTH];
+};
+
+static void text_number(char* out, unsigned value, unsigned width)
+{
+    while (width != 0) { out[--width] = (char)('0' + value % 10); value /= 10; }
+}
 dmod_dmdrvi_dif_api_declaration(2.0, dmrtc, void*, _open,
     (dmdrvi_context_t context, int flags, const dmdrvi_dev_num_t* number))
 {
@@ -191,7 +202,7 @@ dmod_dmdrvi_dif_api_declaration(2.0, dmrtc, void*, _open,
         return NULL;
     if (dmosi_mutex_lock(ctx->lock) != 0) return NULL;
     struct rtc_file* file = ctx->opens == UINT32_MAX ? NULL : Dmod_Malloc(sizeof(*file));
-    if (file != NULL) { file->owner = ctx; file->flags = access; ++ctx->opens; }
+    if (file != NULL) { file->owner = ctx; file->flags = access; file->text_ready = false; ++ctx->opens; }
     dmosi_mutex_unlock(ctx->lock);
     return file;
 }
@@ -208,8 +219,36 @@ dmod_dmdrvi_dif_api_declaration(2.0, dmrtc, void, _close,
 dmod_dmdrvi_dif_api_declaration(2.0, dmrtc, dmdrvi_ssize_t, _read,
     (dmdrvi_context_t ctx, void* handle, void* buffer, size_t size, dmdrvi_offset_t offset))
 {
-    (void)ctx; (void)handle; (void)buffer; (void)size; (void)offset;
-    return -ENOTSUP;
+    dmrtc_t owner = (dmrtc_t)ctx;
+    struct rtc_file* file = handle;
+    if (!dmrtc_is_valid(owner) || file == NULL || file->owner != owner) return -EBADF;
+    if (!(file->flags & (DMDRVI_O_RDONLY | DMDRVI_O_RDWR))) return -EACCES;
+    if (offset < 0) return -EINVAL;
+    if (size == 0) return 0;
+    if (buffer == NULL) return -EINVAL;
+    if (offset >= RTC_TEXT_LENGTH) return 0;
+    int rc = dmosi_mutex_lock(owner->lock);
+    if (rc != 0) return rc;
+    if (!file->text_ready) {
+        dmrtc_calendar_t c;
+        rc = dmrtc_port_get(&c);
+        if (rc == 0 && dmrtc_normalize(&c) != 0) rc = -EIO;
+        if (rc == 0) {
+            memcpy(file->text, "0000-00-00T00:00:00\n", RTC_TEXT_LENGTH);
+            text_number(file->text, c.year, 4);
+            text_number(file->text + 5, c.month, 2);
+            text_number(file->text + 8, c.day, 2);
+            text_number(file->text + 11, c.hour, 2);
+            text_number(file->text + 14, c.minute, 2);
+            text_number(file->text + 17, c.second, 2);
+            file->text_ready = true;
+        }
+    }
+    size_t count = RTC_TEXT_LENGTH - (size_t)offset;
+    if (count > size) count = size;
+    if (rc == 0) memcpy(buffer, file->text + (size_t)offset, count);
+    dmosi_mutex_unlock(owner->lock);
+    return rc == 0 ? (dmdrvi_ssize_t)count : rc;
 }
 dmod_dmdrvi_dif_api_declaration(2.0, dmrtc, dmdrvi_ssize_t, _write,
     (dmdrvi_context_t ctx, void* handle, const void* buffer, size_t size, dmdrvi_offset_t offset))
