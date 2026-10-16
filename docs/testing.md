@@ -96,3 +96,23 @@ Validated STM32F7 compressed packages:
 - `dmrtc_port.dmfc`: `6f8f416592d6a7a8eccfe794d909536824fc5ff02bad47dd434a9ae84a26390c`
 - `rtc.dmfc`: `d5c120a682f5fab69631444fc6edc45d2df42b8eeea38302acc21afb59962810`
 - `test_dmrtc.dmfc`: `2106b08b510d912fa778fd67eb44a9903808cac87eb42214d0295dcae43ab10a`
+
+## Diagnostic text reads — 2026-10-16
+
+`cat /dev/rtc` now prints a bounded 20-byte civil calendar line and reaches EOF.
+The first nonempty read snapshots time per open handle. Partial reads and seeks
+use that snapshot, even if the calendar changes; a new open obtains fresh time.
+An unset calendar returns ENODATA and can be retried after setting time.
+
+- Native ctest: 3/3 targets, including 14/14 driver steps. New checks cover
+  partial reads across a calendar change, buffer guards, rewind, EOF, fresh
+  opens, invalid offset/buffer/handle, write-only access and unset-clock retry.
+- STM32F4/F7 builds passed.
+- STM32F746G-DISCO: RTC 12/12 through VFS, dmdrvi 6/6 and RNG 6/6; actual
+  `cat /dev/rtc` checked before and after restoring PC time.
+- Firmware flashed with OpenOCD Verified OK.
+
+[Console evidence](validation/text-read-2026-10-16.txt).
+
+- `dmrtc.dmfc`: `ec3ff4189437e1967a158d74aba065379513608321e08e66b48694e6ee08ea39`
+- `test_dmrtc.dmfc`: `224de0720fb9239b9a0b4d7aed0833abac163ec29cfd0b889656abc019bc6957`

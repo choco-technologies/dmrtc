@@ -99,7 +99,12 @@ Device files implement `DMDRVI_IOCTL_RTC_GET_TIME`, `SET_TIME`, `GET_STATUS`,
 `GET_INFO`, and optional `INVALIDATE`. The shared calendar, capabilities and
 status structures belong to dmdrvi. Read commands require a readable handle;
 SET_TIME/INVALIDATE require write access. Private ioctl numbers are removed.
-There is no byte-stream encoding. See the [shared contract](https://github.com/choco-technologies/dmdrvi/blob/main/docs/rtc.md).
+`cat /dev/rtc` reads a 20-byte diagnostic line, `YYYY-MM-DDTHH:MM:SS\n`,
+with no NUL terminator or implicit timezone. The first nonempty read captures a
+calendar snapshot for that open handle; partial reads and seeks reuse it, and
+byte offset 20 or later returns EOF. Reopen the device for fresh time. An unset
+calendar returns `-ENODATA` without caching a failed read. Writes remain
+unsupported; use the standard ioctl contract to set time. See the [shared contract](https://github.com/choco-technologies/dmdrvi/blob/main/docs/rtc.md).
 
 GET_INFO reports 2000–2099, one-second resolution, SET_TIME and INVALIDATE.
 This driver does not advertise hardware continuity-loss detection; the console
