@@ -1,0 +1,12 @@
+# Include dynamically generated versions list from latest release
+$include https://github.com/choco-technologies/dmrtc/releases/download/vlatest/versions.dmm
+
+# Module entries with version placeholder - expanded by $version-available.
+# Both the core module and the port use <cpu_family> here, not <arch_name>:
+# the release workflow packages this repo per DMOD_CPU_FAMILY, not per full
+# architecture (see dmfmc/manifest.dmm or dmuart/manifest.dmm for the
+# real-world reference).
+dmrtc      https://github.com/choco-technologies/dmrtc/releases/download/v<version>/dmrtc-v<version>-<cpu_family>.zip
+dmrtc_port https://github.com/choco-technologies/dmrtc/releases/download/v<version>/dmrtc_port-v<version>-<cpu_family>.zip
+rtc https://github.com/choco-technologies/dmrtc/releases/download/v<version>/rtc-v<version>-<cpu_family>.zip
+test_dmrtc https://github.com/choco-technologies/dmrtc/releases/download/v<version>/test_dmrtc-v<version>-<cpu_family>.zip
