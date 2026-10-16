@@ -75,7 +75,7 @@ target_include_directories(${DMOD_MODULE_NAME}_if INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-dmod_link_modules(${DMOD_MODULE_NAME} dmdrvi@2.7 dmini@0.7 dmosi)
+dmod_link_modules(${DMOD_MODULE_NAME} dmdrvi dmini dmosi)
 
 add_subdirectory(src/port)
 target_link_libraries(${DMOD_MODULE_NAME} ${DMOD_MODULE_NAME}_port_if)

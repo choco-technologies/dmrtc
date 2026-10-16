@@ -35,11 +35,6 @@ dmod_add_library(${DMOD_MODULE_NAME} ${DMOD_MODULE_VERSION}
     ${COMMON_SOURCES}
 )
 
-# To depend on another module's headers, use:
-#   dmod_link_modules(${DMOD_MODULE_NAME}
-#       other_module@1.0
-#   )
-
 target_include_directories(${DMOD_MODULE_NAME} BEFORE PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -50,5 +45,5 @@ target_include_directories(${DMOD_MODULE_NAME}_if INTERFACE
 )
 
 if(DMOD_CPU_FAMILY MATCHES "^stm32f[47]$")
-    dmod_link_modules(${DMOD_MODULE_NAME} dmclk_port@1.2)
+    dmod_link_modules(${DMOD_MODULE_NAME} dmclk_port)
 endif()
