@@ -23,97 +23,9 @@ Captured in dmrtc-irq-long-58.bin
 
 Total Test time (real) =   0.27 sec
 
-Hardware suite after RTOS boot ordering fix:
-
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
-stm32f746xg@/>
-stm32f746xg@/> echo RTC_SCHEDULER_READY
-RTC_SCHEDULER_READY
+Final hardware suite with RCC IRQ and scheduled boot:
+echo RTC_IRQ_FINAL
+RTC_IRQ_FINAL
 stm32f746xg@/> rtc status
 running=1 calendar_set=1 clock=lse nominal_hz=32768
 stm32f746xg@/> test_dmrtc
@@ -143,7 +55,7 @@ dmdevfs: [ERROR] Driver failed to open device: /rng
 [ERROR] Failed to open file '/dev/rng'
 [  OK  ] vfs_device
 [ RUN  ] sustained_generation
-RNG_SAMPLE bytes=65536 checksum=0a3d23cd
+RNG_SAMPLE bytes=65536 checksum=565a0836
 [  OK  ] sustained_generation
 [ RUN  ] single_owner_and_configuration_validation
 [  OK  ] single_owner_and_configuration_validation
@@ -155,4 +67,9 @@ RNG_SAMPLE bytes=65536 checksum=0a3d23cd
 [  OK  ] zero_and_invalid_reads
 
 === Results: 6/6 passed ===
+stm32f746xg@/> rtc set 2026-10-16T05:15:37
+stm32f746xg@/> rtc get
+2026-10-16T05:15:37 weekday=5
+stm32f746xg@/> ip addr
+eth0: 192.168.50.184/24
 stm32f746xg@/>
