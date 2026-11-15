@@ -2,6 +2,7 @@
 
 Calendar RTC driver for DMOD, with separate `dmrtc` and `dmrtc_port` modules.
 STM32F4 and STM32F7 share their implementation in `src/port/stm32_common/`.
+The `esp32s3` port keeps the calendar with the RTC timer of the chip (see below).
 The `x86_64` port is a deterministic test double and is excluded from releases.
 
 ## Capabilities
@@ -139,3 +140,19 @@ Details and hardware evidence: [testing](docs/testing.md).
 - [STM32F746G-DISCO user manual UM1907](https://www.st.com/resource/en/user_manual/dm00190424.pdf)
 
 MIT license. Author: Patryk Kubiak.
+
+## ESP32-S3
+
+The chip has no calendar: `src/port/esp32s3/port.c` counts the slow clock of the RTC (RTC_CNTL timer, 48 bits; it is not touched by a
+reset of the CPU or of the system) from a point of reference kept in the RTC slow memory (the last 32 bytes of its 8 KB, magic and checksum):
+
+    calendar = the calendar set + (RTC timer now - RTC timer when it was set) / (frequency of the slow clock)
+
+Without a 32 kHz crystal the slow clock is an RC oscillator (about 136 kHz, +-5 %), so its frequency is measured when the calendar is set,
+against the crystal of the CPU (TIMG0, the calibration of the RTC clock): the error is the one of the measurement, not of the oscillator.
+The time survives the resets, **not the loss of the power** (nor a power-on reset): until it is set again, `get` returns -ENODATA and the
+status says "not set" - which is what dmutc needs to set it from NTP (dmntp). `clock_hz` in the ini is only the nominal frequency;
+`backup_register` is not used. Board configuration: `configs/board/t-deck-pro/rtc.ini` (the T-Deck Pro has no RTC chip).
+
+The module needs at least one output for the loader of dmod (it refuses a module that has none): the port reads the uptime for the timeout of
+the calibration. It does not log: DMOD_LOG_* from this module jumped to a wrong address on the T-Deck Pro (not understood yet).
