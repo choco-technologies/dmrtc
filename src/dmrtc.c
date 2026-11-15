@@ -35,7 +35,7 @@ dmod_dmrtc_api_declaration(1.0, dmrtc_t, _default, (void)) { return active; }
 static bool valid_config(const dmrtc_config_t* c)
 {
     return c->instance == 0 && (c->clock == DMRTC_CLOCK_LSE || c->clock == DMRTC_CLOCK_LSI) &&
-        c->clock_hz >= 128 && c->clock_hz <= 65536 && c->clock_hz % 128 == 0 &&
+        c->clock_hz >= 128 && c->clock_hz <= 1000000 && /* the ports check what their hardware needs */
         c->timeout_ms > 0 && c->timeout_ms <= 10000 && c->backup_register < 19;
 }
 dmod_dmrtc_api_declaration(1.0, dmrtc_t, _create, (const dmrtc_config_t* config))
